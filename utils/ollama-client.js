@@ -1,3 +1,7 @@
+import 'dotenv/config';
+
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL;
 
 export async function askOllama(request, prompt) {
 
@@ -5,10 +9,10 @@ export async function askOllama(request, prompt) {
         throw new Error('Prompt must be a non-empty string');
     }
     const response = await request.post(
-        'http://localhost:11434/api/chat',
+        `${OLLAMA_BASE_URL}/api/chat`,
         {
             data: {
-                model: 'llama3.2:1b',
+                model: OLLAMA_MODEL,
                 messages: [
                     {
                         role: 'user',
