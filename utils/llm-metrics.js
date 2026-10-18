@@ -1,4 +1,5 @@
-import { writeFile } from 'node:fs/promises';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
 export class LLMMetrics {
     constructor() {
         this.results = [];
@@ -37,19 +38,28 @@ export class LLMMetrics {
 }
 
 
-export async function saveMetricsReport(summary, filePath) {
-    await writeFile(
-        filePath,
-        JSON.stringify(
-            {
-                generatedAt: new Date().toISOString(),
-                ...summary,
-            },
-            null,
-            2
-        ),
-        'utf8'
-    );
+
+export async function saveMetricsReport(
+  summary,
+  filePath,
+  qualityScores = []
+) {
+  const report = {
+    generatedAt: new Date().toISOString(),
+    ...summary,
+    qualityScores,
+  };
+
+  await mkdir(dirname(filePath), { recursive: true });
+
+  await writeFile(
+    filePath,
+    JSON.stringify(report, null, 2),
+    'utf8'
+  );
+
+  console.log(`Metrics report saved to: ${filePath}`);
 }
+
 
 
