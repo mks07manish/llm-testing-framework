@@ -1,36 +1,56 @@
+
 import { test, expect } from '@playwright/test';
 import { performance } from 'node:perf_hooks';
 import { askOllama } from '../utils/ollama-client.js';
-import { evaluateResponse } from '../utils/response-evaluator.js';
+import { LLMMetrics,saveMetricsReport } from '../utils/llm-metrics.js';
 
-test('LLM should consistently answer a factual question', async ({ request }) => {
-  const runs = [];
+test('LLM reliability and execution metrics', async ({ request }) => {
+  const metrics = new LLMMetrics();
+  const iterations = 5;
 
-  for (let i = 1; i <= 5; i++) {
-    const start = performance.now();
+  for (let i = 1; i <= iterations; i++) {
+    const startTime = performance.now();
+    let passed = false;
+    let answer = '';
 
-    const answer = await askOllama(
-      request,
-      'What is the capital of France? Answer briefly.'
+    try {
+      answer = await askOllama(
+        request,
+        'What is the capital of France? Answer briefly.'
+      );
+
+      passed = answer.toLowerCase().includes('paris');
+    } catch (error) {
+      console.log(`Run ${i} error:`, error.message);
+    }
+
+    const latencyMs = Number(
+      (performance.now() - startTime).toFixed(2)
     );
 
-    const latencyMs = Math.round(performance.now() - start);
+    metrics.recordResult({
+      testId: `LLM-${String(i).padStart(3, '0')}`,
+      passed,
+      latencyMs,
+    });
 
-    const evaluation = evaluateResponse(answer, ['Paris']);
-
-    runs.push({
+    console.log({
       run: i,
-      passed: evaluation.missingKeywords.length === 0,
+      passed,
       latencyMs,
       answer,
     });
   }
 
-  console.log('Reliability results:', JSON.stringify(runs, null, 2));
+  const summary = metrics.getSummary();
 
-  // Every run must contain the expected factual keyword.
-  expect(runs.filter(run => run.passed)).toHaveLength(5);
+  await saveMetricsReport(summary, 'reports/llm-metrics.json' );
 
-  // Basic latency sanity check, not a performance SLA.
-  expect(runs.every(run => run.latencyMs > 0)).toBe(true);
+  console.log('LLM Execution Metrics:', summary);
+
+  expect(summary.total).toBe(iterations);
+  expect(summary.passed).toBe(iterations);
+  expect(summary.failed).toBe(0);
+  expect(summary.passPercentage).toBe(100);
+  expect(summary.averageLatencyMs).toBeGreaterThan(0);
 });
